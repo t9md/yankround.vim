@@ -9,8 +9,17 @@ function! s:new_rounder(keybind) "{{{
   return _
 endfunction
 "}}}
-function! s:_rounder.init_region_hl() "{{{
-  let pat = '.\%>''\[.*\%<''\]..'
+
+function! s:_rounder.init_region_hl(regtype) "{{{
+  call s:rounder._clear_highlight()
+  if a:regtype =~# "^\<C-v>"
+    let [s_line, s_col] = [line("'["), col("'[")]
+    let [e_line, e_col] = [line("']"), col("']")]
+    let pat = printf('\v\c%%>%dl%%>%dc.*%%<%dl%%<%dc',
+          \ s_line-1, s_col-1, e_line+1, e_col+1)
+  else
+    let pat = '.\%>''\[.*\%<''\]..'
+  endif
   call add(self.match_ids, matchadd(g:yankround_region_hl_groupname, pat))
 endfunction
 "}}}
@@ -42,6 +51,9 @@ function! s:_rounder.round_cache(incdec) "{{{
   ec 'yankround: ('. (self.idx+1). '/'. self.cachelen. ')'
   let self.pos = getpos('.')
   let self.changedtick = b:changedtick
+  if g:yankround_use_region_hl
+    call self.init_region_hl(regtype)
+  endif
 endfunction
 "}}}
 function! s:_rounder._round_idx(incdec) "{{{
@@ -74,6 +86,7 @@ function! s:_rounder._clear_highlight() "{{{
     endtry
   endfor
 endfunction
+"
 "}}}
 
 
@@ -82,7 +95,14 @@ endfunction
 function! yankround#init_rounder(keybind) "{{{
   let s:rounder = s:new_rounder(a:keybind)
   if g:yankround_use_region_hl
-    call s:rounder.init_region_hl()
+    " ここの初回の regtype の取り方が分からない。無理かも。
+    " "xp とかされた時、register-x
+    " が使用された事を、プラグイン側では知り得ない気がする。
+    " これをサポートしても良くなるか微妙。複雑になりすぎる気が。。
+    " なので初回は以下の様に v
+    " とかに決めうつか、そもそも初回はハイライトしない
+    " かのどちらかにするしか無い気がないかも。
+    call s:rounder.init_region_hl('v')
   end
   aug yankround_rounder
     autocmd!
